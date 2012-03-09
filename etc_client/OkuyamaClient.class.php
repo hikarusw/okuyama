@@ -1134,6 +1134,25 @@ class OkuyamaClient {
     }
 
     /**
+     * マスタサーバへObjectデータを送信する.<br>
+     * 値の新規登録を保証する<br>
+     * PHPのオブジェクトデータの保存を行う.<br>
+     * 実装としてPHPのserialize関数を利用しているため、serialize関数で変換できないObjectは扱えない.<br>
+     * Tag有り.<br>
+     * 有効期限が秒単位で設定可能<br>
+     *
+     * @param keyStr Key値文字列
+     * @param objectValue Object値
+     * @param tagStrs Tag文字配列
+     * @param expireTime 有効期限(秒/単位)
+     * @return boolean 成否
+     * @throws OkuyamaClientException, Exception
+     */
+    public function setNewObjectValue($keyStr, $objectValue, $tagStrs = null, $expireTime = null) {
+        return $this->setNewValue($keyStr, serialize($objectValue), $tagStrs, $expireTime);
+    }
+
+    /**
      * マスタサーバへデータを送信する.<br>
      * 排他的バージョンチェックを行い、更新する.<br>
      * バージョン番号をgetValueVersionCheckメソッドで事前にバージョン値を取得して更新時のチェック値として利用する
@@ -1159,6 +1178,7 @@ class OkuyamaClient {
                     if ($this->checkStrByteLength($tagStrs[$i]) > $this->maxKeySize) throw new OkuyamaClientException("Tag Max Size " . $this->maxKeySize . " Byte");
                 }
             }
+
             if ($this->checkStrByteLength($value) > $this->maxValueSize) throw new OkuyamaClientException("Save Value Max Size " . $this->maxValueSize . " Byte");
 
             if ($this->socket == null) throw new OkuyamaClientException("No ServerConnect!!");
@@ -1178,7 +1198,8 @@ class OkuyamaClient {
                 // ValueをBase64でエンコード
                 $encodeValue = $this->dataEncoding($value);
             }
-
+var_dump("this->maxValueSize=" . $this->maxValueSize);
+var_dump($this->checkStrByteLength($encodeValue));
             // 文字列バッファ初期化
             $serverRequestBuf = "";
 
@@ -1618,7 +1639,7 @@ class OkuyamaClient {
 
 
     /**
-     * マスタサーバからKeyを複数個指定することで一度に複数個のKeyとValueをを取得する.<br>
+     * マスタサーバからKeyを複数個指定することで一度に複数個のKeyとValueを取得する.<br>
      * 取得されたKeyとValueがarrayにKeyとValueの組になって格納され返される<br>
      * 存在しないKeyを指定した場合は返却される連想配列には含まれない<br> 
      * Key値にブランクを指定した場合はKeyを指定していないものとみなされる<br> 
@@ -2300,6 +2321,245 @@ class OkuyamaClient {
         return $ret;
     }
 
+
+
+    /**
+     * MasterNodeからTag値を渡すことで紐付くValue値の集合を取得する.<br>
+     * 文字列エンコーディング指定あり.<br>
+     * Keyは削除されTagとの紐付けだけ残っている値は返却されない.<br>
+     * 存在しないTagを指定した場合はNULLが返される<br>
+     *
+     * @param tagStr Tag文字列
+     * @param encoding エンコーディング指定
+     * @return array 取得データの連想配列 キー値はTag紐付くKeyとなりValueはそのKeyに紐付く値となる(存在しないTagを指定した場合はNULLが返される)
+     * @throws OkuyamaClientException, Exception
+     */
+    public function getTagValues($tagStr, $encoding="UTF-8") {
+        $ret = array(); 
+        $serverRetStr = null;
+        $serverRet = null;
+
+        $serverRequestBuf = null;
+
+        try {
+            if ($this->socket == null) throw new OkuyamaClientException("No ServerConnect!!");
+
+            // エラーチェック
+            // Keyに対する無指定チェック
+            if ($tagStr == null ||  $tagStr === "") {
+                throw new OkuyamaClientException("The blank is not admitted on a tag");
+            }
+
+
+            $sendKeyList = array();
+
+            // 文字列バッファ初期化
+            $serverRequestBuf = "";
+
+            // 処理番号連結
+            $serverRequestBuf = $serverRequestBuf . "23";
+            // セパレータ連結
+            $serverRequestBuf = $serverRequestBuf . $this->sepStr;
+
+            // Tag連結
+            $serverRequestBuf = $serverRequestBuf . $this->dataEncoding($tagStr);
+
+
+            // サーバ送信
+            @fputs($this->socket, $serverRequestBuf . "\n");
+
+            while (true) {
+                $serverRetStr = @fgets($this->socket);
+                if ($serverRetStr === FALSE) break;
+
+                $serverRetStr = str_replace("\r", "", $serverRetStr);
+                $serverRetStr = str_replace("\n", "", $serverRetStr);
+                if ($serverRetStr === $this->getMultiEndOfDataStr) break;
+
+                $serverRet = explode($this->sepStr, $serverRetStr);
+
+
+
+                // 処理の妥当性確認
+                if ($serverRet[0] === "23") {
+                    if ($serverRet[1] === "true") {
+    
+                        // データ有り
+                        $oneDataRet = array();
+
+                        $oneDataRet[0] = $this->dataDecoding($serverRet[2], $encoding);
+
+                        // Valueがブランク文字か調べる
+                        if ($serverRet[3] === $this->blankStr) {
+                            $oneDataRet[1] = "";
+                        } else {
+    
+                            // Value文字列をBase64でデコード
+                            $oneDataRet[1] =  $this->dataDecoding($serverRet[3], $encoding);
+                        }
+                        $ret[$oneDataRet[0]] =  $oneDataRet[1];
+                    } else {
+                        // データなし or エラー 今のところ無視
+                    }
+                } else {
+    
+                    // 妥当性違反
+                    throw new OkuyamaClientException("Execute Violation of validity");
+                }
+            }
+
+            if (count($ret) < 1) $ret = null;
+
+        } catch (OkuyamaClientException $oe) {
+            throw $oe;
+        } catch (Exception $e) {
+            if ($this->masterNodesList != null && count($this->masterNodesList) > 1) {
+                if($this->autoConnect()) {
+                    $ret = $this->getTagValues($keyStrList, $encoding);
+                }
+            } else {
+                throw $e;
+            }
+        }
+        return $ret;
+    }
+
+    /**
+     * MasterNodeからTag値を渡すことで紐付くKey値の配列を取得する<br>
+     * 複数のTagを指定することで、一度に関連する値を取得可能<br>
+     * 複数のTagに紐付く値はマージされて1つとなる<br>
+     * 引数のmargeTypeを指定することで、ANDとORを切り替えることが出来る<br>
+     *
+     * @param tagList Tag値のリスト
+     * @param margeType 取得方法指定(true = AND、false=OR)
+     * @param noExistsData 存在していないデータを取得するかの指定(true:取得する false:取得しない)
+     * @return String[] 取得データのKey配列 取得キーに同一の値を複数指定した場合は束ねられる。結果が0件の場合はnullが返る
+     */
+    public function getMultiTagKeys($tagList, $margeType=true, $noExistsData=true) {
+        $ret = null;
+        $tagRet = null;
+        $retKeyList = null;
+        $serverRetStr = null;
+        $serverRet = null;
+        $margeRet = null;
+        $tmpKeys = null;
+
+        if ($this->socket == null) throw new OkuyamaClientException("No ServerConnect!!");
+
+        $tagRet = $this->getTagKeys($tagList[0], $noExistsData);
+        if($margeType === true && $tagRet[0] === "false") return $ret;
+
+        if ($tagRet[0] === "true") {
+            $tmpKeys = array();
+            $retTmpKeys = $tagRet[1];
+
+            for ($i = 0; $i < count($retTmpKeys); $i++) {
+                $tmpKeys[$retTmpKeys[$i]] = "";
+            }           
+            $retKeyList = $tmpKeys;
+
+        } else {
+            $retKeyList = array();
+        }
+
+        for ($i = 1; $i < count($tagList); $i++) {
+            $tagRet = $this->getTagKeys($tagList[$i]);
+            if($margeType === true && $tagRet[0] === "false") return NULL;
+
+            if ($tagRet[0] === "true") {
+                if ($margeType === true) {
+
+                    $tmpKeys = array();
+                    $retTmpKeys = $tagRet[1];
+                    for ($retTmpKeysIdx = 0; $retTmpKeysIdx < count($retTmpKeys); $retTmpKeysIdx++) {
+                        $tmpKeys[$retTmpKeys[$retTmpKeysIdx]] = "";
+                    }
+                    $deleteKeys = array_diff_key($retKeyList, $tmpKeys);
+
+                    foreach ($deleteKeys as $key => $val){
+                        unset($retKeyList[$key]);
+                    }   
+                } else {
+                    $tmpKeys = array();
+                    $retTmpKeys = $tagRet[1];
+                    for ($retTmpKeysIdx = 0; $retTmpKeysIdx < count($retTmpKeys); $retTmpKeysIdx++) {
+                        $tmpKeys[$retTmpKeys[$retTmpKeysIdx]] = "";
+                    }
+                    $tmpRet = array_merge($retKeyList, $tmpKeys);
+                    $retKeyList = $tmpRet;
+                }
+            } else {
+                $tmpKeys = array();
+                $retTmpKeys = $tagRet[1];
+                for ($retTmpKeysIdx = 0; $retTmpKeysIdx < count($retTmpKeys); $retTmpKeysIdx++) {
+                    $tmpKeys[$retTmpKeys[$retTmpKeysIdx]] = "";
+                }
+                $tmpRet = array_merge($retKeyList, $tmpKeys);
+                $retKeyList = $tmpRet;
+            }
+        }
+
+        if (count($retKeyList) < 1) return null;
+
+        $tmpKeys = array();
+
+        foreach ($retKeyList as $key => $val){
+            $tmpKeys[] = $key;
+        }
+
+        $retKeyList = $tmpKeys;
+
+        return $retKeyList;
+    }
+
+    /**
+     * MasterNodeからTag値を渡すことで紐付くValue値の集合を取得する<br>
+     * 複数のTagを指定することで、一度に関連する値を取得可能<br>
+     * 複数のTagに紐付く値はマージされて1つとなる<br>
+     * 引数のmargeTypeを指定することで、ANDとORを切り替えることが出来る<br>
+     *
+     * @param tagList Tag値のリスト
+     * @param margeType 取得方法指定(true = AND、false=OR)
+     * @return array KeyとValueが格納された連想配列がかえされる。1件もデータが存在しない場合はnullが返る
+     */
+    public function getMultiTagValues($tagList, $margeType=true) {
+        $ret = null;
+        $tagRet = null;
+        $retKeyList = null;
+        $serverRetStr = null;
+        $serverRet = null;
+        $margeRet = null;
+        $tmpKeys = null;
+
+        if ($this->socket == null) throw new OkuyamaClientException("No ServerConnect!!");
+
+        $tagRet = $this->getTagValues($tagList[0]);
+        if($margeType === true && $tagRet[0] === "false") return $ret;
+
+        $ret = $tagRet;
+
+        for ($i = 1; $i < count($tagList); $i++) {
+            $tagRet = $this->getTagValues($tagList[$i]);
+            if($margeType === true && $tagRet === null) return NULL;
+
+            if ($tagRet !== null) {
+                if ($margeType === true) {
+
+                    $deleteKeys = array_diff_key($ret, $tagRet);
+                    foreach ($deleteKeys as $key => $val){
+                        unset($ret[$key]);
+                    }   
+                } else {
+                    $tmpRet = array_merge($ret, $tagRet);
+                    $ret = $tmpRet;
+                }
+            }
+        }
+
+        if (count($ret) < 1) return null;
+
+        return $ret;
+    }
 
 
     /**

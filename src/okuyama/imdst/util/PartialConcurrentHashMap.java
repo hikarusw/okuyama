@@ -19,7 +19,7 @@ import com.sun.mail.util.BASE64EncoderStream;
  * @author T.Okuyama
  * @license GPL(Lv3)
  */
-public class PartialConcurrentHashMap extends ConcurrentHashMap implements Cloneable, Serializable {
+public class PartialConcurrentHashMap extends ConcurrentHashMap implements Cloneable, Serializable, ICoreStorage {
 
     private boolean fullMemory = true;
 
@@ -37,7 +37,7 @@ public class PartialConcurrentHashMap extends ConcurrentHashMap implements Clone
                                          bigValueStoreDirs[0] + "/partialbigdata3/", 
                                          bigValueStoreDirs[0] + "/partialbigdata4/", 
                                          bigValueStoreDirs[0] + "/partialbigdata5/"};
-            this.bigValueStoreMap = new FileBaseDataMap(bigValueStoreDir, 100000, 0.01, ImdstDefine.saveDataMaxSize, ImdstDefine.memoryStoreLimitSize*2, ImdstDefine.memoryStoreLimitSize*6);
+            this.bigValueStoreMap = new FileBaseDataMap(bigValueStoreDir, 100000, 0.01, new Double(ImdstDefine.saveDataMaxSize*1.40).intValue(), ImdstDefine.memoryStoreLimitSize*2, ImdstDefine.memoryStoreLimitSize*6);
         }
 
     }

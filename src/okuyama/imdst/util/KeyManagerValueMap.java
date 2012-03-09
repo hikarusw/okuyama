@@ -32,7 +32,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Serializable {
 
     // 完全にメモリのみでKeyとValueを管理する場合のみtrue
-    private boolean memoryMode = true;
+    public boolean memoryMode = true;
 
     // 完全にディスクのみでKeyとValueを管理する場合のみtrue
     private boolean fullDiskMode = false;
@@ -40,7 +40,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
 
     private transient BufferedWriter bw = null;
     private transient AtomicInteger dataFileBufferUseCount = null;
-    private transient RandomAccessFile raf = null;
+    private transient AbstractDataRandomAccess raf = null;
 
     private transient FileBaseDataMap overSizeDataStore = null;
 
@@ -49,7 +49,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
     private transient boolean vacuumExecFlg = false;
     private transient List vacuumDiffDataList = null;
 
-    private ConcurrentHashMap dataSizeMap = new ConcurrentHashMap(20, 16, 16);
+    protected Map dataSizeMap = new ConcurrentHashMap(20, 16, 16);
     private ArrayBlockingQueue deletedDataPointList = null;
 
     private String lineFile = null;
@@ -66,11 +66,14 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
 
     private boolean mapValueInSize = false;
 
+    private String diskCacheFile = null;
+
 
     // コンストラクタ
-    public KeyManagerValueMap(int size, boolean memoryMode, String[] virtualStoreDirs) {
-
-        super(size, new Double(size * 0.9).intValue(), 512, memoryMode, virtualStoreDirs);
+    public KeyManagerValueMap(int size, boolean memoryMode, String[] virtualStoreDirs, boolean renewFlg, File bkupObjFile, String diskCacheFile) {
+        super(size, new Double(size * 0.9).intValue(), 512, memoryMode, virtualStoreDirs, renewFlg, bkupObjFile);
+        this.dataSizeMap = super.dataSizeMap;
+        this.diskCacheFile = diskCacheFile;
 
         this.memoryMode = memoryMode;
         if (!this.memoryMode) this.mapValueInSize = true;
@@ -78,9 +81,10 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
 
 
     // コンストラクタ
-    public KeyManagerValueMap(String[] dirs, int numberOfDataSize) {
-
-        super(dirs, numberOfDataSize);
+    public KeyManagerValueMap(String[] dirs, int numberOfDataSize, boolean renewFlg, String diskCacheFile) {
+        super(dirs, numberOfDataSize, renewFlg);
+        this.dataSizeMap = super.dataSizeMap;
+        this.diskCacheFile = diskCacheFile;
         this.memoryMode = false;
         this.fullDiskMode = true;
     }
@@ -116,8 +120,13 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
                 this.overSizeDataStore = new FileBaseDataMap(overSizeDataStoreDirs, 100000, 0.01, ImdstDefine.saveDataMaxSize, ImdstDefine.dataFileWriteMaxSize*5, ImdstDefine.dataFileWriteMaxSize*15);
 
 
+
+            File valueFile = new File(lineFile);
+            if (!valueFile.exists() || valueFile.length() < 1) {
+                super.clear();
+            }
             // データ操作記録ファイル用のBufferedWriter
-            this.bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(lineFile), true), ImdstDefine.keyWorkFileEncoding), 1024*256);
+            this.bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(valueFile, true), ImdstDefine.keyWorkFileEncoding), 1024*256);
             this.dataFileBufferUseCount = new AtomicInteger(0);
 
             // 共有データファイルの再書き込み遅延指定
@@ -126,9 +135,13 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
                 this.raf = new CustomRandomAccess(new File(lineFile) , "rw");
             } else {
                 // 遅延なし
-                this.raf = new RandomAccessFile(new File(lineFile) , "rw");
+                //this.raf = new RandomAccessFile(new File(lineFile) , "rw");
+                //this.raf = new SortedSchedulingRandomAccess(new File(lineFile) , "rw");
+                this.raf = new HighSpeedDiskCacheRandomAccess(new File(lineFile), "rw", this.diskCacheFile);
             }
-
+            // 自身のインスタンスをファイルアクセッサに渡す
+            this.raf.setDataPointMap(this);
+            
             // 削除済みデータ位置保持領域構築
             this.deletedDataPointList = new ArrayBlockingQueue(ImdstDefine.numberOfDeletedDataPoint);
 
@@ -136,9 +149,42 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
             this.lineFile = lineFile;
             int counter = 0;
 
-            // 現在のファイルの終端
-            while(br.readLine() != null){
+            // 現在のファイルの終端を探す
+            // 終端を探すまでに壊れてしまっているデータは無効データ(ブランクデータ)に置き換える
+            String readDataLine = null;
+            while((readDataLine = br.readLine()) != null){
+
                 counter++;
+                boolean zeroDataFlg = false;
+                int writeLen = this.oneDataLength;
+                if (readDataLine.trim().length() == 0) zeroDataFlg = true;
+
+                if (readDataLine.getBytes().length < this.oneDataLength) {
+                    int shiftByteSize = 0;
+                    if (readDataLine.length() < "(B)!0".length()) {
+                        int shift = "(B)!0".length() - readDataLine.length();
+                        shiftByteSize = shift; 
+                    }
+                    readDataLine = "(B)!0";
+                    StringBuilder updateBuf = new StringBuilder(readDataLine);
+                    for (int i = 0; i < (this.oneDataLength - readDataLine.length()); i++) {
+                        updateBuf.append("&");
+                        shiftByteSize++;
+                    }
+
+                    if(!zeroDataFlg) {
+                        updateBuf.append("\n");
+                        writeLen = writeLen + 1;
+                    }
+
+                    shiftByteSize++;
+
+                    this.raf.seek(this.convertLineToSeekPoint(counter));
+                    this.raf.write(updateBuf.toString().getBytes(), 0, writeLen);
+                    for (int i = 0; i < shiftByteSize; i++) {
+                        br.read();
+                    }
+                }
             }
 
             this.lineCount = counter;
@@ -187,7 +233,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
                         }
                     }
 
-                    this.readDataFile(buf, seekPoint, this.oneDataLength);
+                    this.readDataFile(buf, seekPoint, this.oneDataLength, key);
                 }
 
                 ret = new String(buf, ImdstDefine.keyWorkFileEncoding);
@@ -232,7 +278,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
                     }
 
                     synchronized (sync) {
-                        readRet = this.readDataFile(buf, seekPoint, this.oneDataLength);
+                        readRet = this.readDataFile(buf, seekPoint, this.oneDataLength, key);
                         if (readRet == -1) {
 
                             return null;
@@ -292,7 +338,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
                 // seek値取得
                 if ((seekPoint = this.calcSeekDataPoint(key)) == -1) return null;
 
-                readRet = this.readDataFile(buf, seekPoint, this.oneDataLength);
+                readRet = this.readDataFile(buf, seekPoint, this.oneDataLength, key);
 
                 boolean overSizeData = false;
                 if (buf[this.oneDataLength -1] != 38 || readRet > this.oneDataLength) {
@@ -327,6 +373,23 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
         return ret;
     }
 
+
+    /**
+     * Valueがファイルにある場合の位置を取得する
+     *
+     */
+    public long dataPointGet(Object key) {
+        long ret = -1;
+        try {
+            ret = this.calcSeekDataPoint(key, false);
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 致命的
+            StatusUtil.setStatusAndMessage(1, "KeyManagerValueMap - dataPointGet - Error [" + e.getMessage() + "]");
+            
+        }
+        return ret;
+    }
 
     /**
      * putをオーバーライド.<br>
@@ -377,7 +440,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
                     writeBuf.append("\n");
 
 
-                    if ((this.fullDiskMode == true && ImdstDefine.reuseDataFileValuePositionFlg == false) || (seekPoint = this.calcSeekDataPoint(key)) == -1) {
+                    if ((this.fullDiskMode == true && ImdstDefine.reuseDataFileValuePositionFlg == false) || (seekPoint = this.calcSeekDataPoint(key, false)) == -1) {
 
                         // まだ存在しないデータ
                         // 書き込む行を決定
@@ -385,13 +448,19 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
 
                             // 削除済みデータが使用していた場所をまずは調べる
                             Integer deletedLine = null;
-                            if (mapValueInSize) {
-                                String deletedLineStr = (String)this.deletedDataPointList.poll();
-                                if (deletedLineStr != null) {
-                                    deletedLine = new Integer(((String[])deletedLineStr.split(":"))[0]);
+
+                            String deletedLineStr = (String)this.deletedDataPointList.peek();
+
+                            if (deletedLineStr != null) {
+                                String[] checkUseTime = deletedLineStr.split("\\.");    // 先頭にこのデータが登録された時刻が連結されている
+                                if (Long.parseLong(checkUseTime[0]) < System.currentTimeMillis()) {
+                                    if (mapValueInSize) {
+                                        deletedLine = new Integer(((String[])checkUseTime[1].split(":"))[0]);
+                                    } else {
+                                        deletedLine = new Integer(checkUseTime[1]);
+                                    }
+                                    deletedDataPointList.poll();
                                 }
-                            } else {
-                                deletedLine = (Integer)this.deletedDataPointList.poll();
                             }
 
                             if (vacuumExecFlg) {
@@ -503,8 +572,10 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
 
             // 再利用可能なデータの場所を保持(ValueをFileに保存している場合のみ)
             if(ret != null) {
-                if (!this.memoryMode) 
-                    this.deletedDataPointList.offer(ret);
+                if (!this.memoryMode) {
+                    String deleteLinePointStr = new Long((System.currentTimeMillis() + (1000 * 60 * 35))).toString() + "." + ret;
+                    this.deletedDataPointList.offer(deleteLinePointStr);
+                }
             }
 
 
@@ -586,6 +657,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
             size = (AtomicLong)dataSizeMap.get(unique);
         }
 
+        // 参照上を演算
         size.getAndAdd(beforeSize);
         size.getAndAdd(addSize);
     }
@@ -850,6 +922,11 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
         }
     }
 
+
+    public void fileStoreMapObject(File file) throws Exception {
+        super.fileStoreMapObject(file, this.dataSizeMap);
+    }
+
     /**
      * Diskモード時にデータストリームを閉じて、データファイルを削除する.<br>
      *
@@ -896,13 +973,17 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
      * @param readLength 読み込み指定地
      * @return 読み込んだデータサイズ
      */
-    private int readDataFile(byte[] buf, long seekPoint, int readLength) throws Exception {
+    private int readDataFile(byte[] buf, long seekPoint, int readLength, Object key) throws Exception {
         int ret = readLength;
 
         if (raf != null) {
 
-            raf.seek(seekPoint);
-            SystemUtil.diskAccessSync(raf, buf, 0, this.oneDataLength);
+            if (!ImdstDefine.dataFileWriteDelayFlg) {
+                ((AbstractDataRandomAccess)this.raf).seekAndRead(seekPoint, buf, 0, this.oneDataLength, key);
+            } else {
+                raf.seek(seekPoint);
+                SystemUtil.diskAccessSync(raf, buf, 0, this.oneDataLength);
+            }
         } else {
             return -1;
         }
@@ -961,6 +1042,7 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
     }
 
 
+
     /**
      * Key値を渡すことでそのKeyの対となるValueがデータファイルのどこにあるかを.<br>
      * データファイル中のバイト位置で返す.<br>
@@ -969,17 +1051,35 @@ public class KeyManagerValueMap extends CoreValueMap implements Cloneable, Seria
      * @return long ファイル中の開始位置 データが存在しない場合は-1が返却される
      */
     private long calcSeekDataPoint(Object key) {
+        return this.calcSeekDataPoint(key, true);
+    }
+    /**
+     * Key値を渡すことでそのKeyの対となるValueがデータファイルのどこにあるかを.<br>
+     * データファイル中のバイト位置で返す.<br>
+     *
+     * @param key Key値
+     * @return long ファイル中の開始位置 データが存在しない場合は-1が返却される
+     */
+    private long calcSeekDataPoint(Object key, boolean requestSeekPoint) {
 
         Integer lineInteger = null;
         if (mapValueInSize) {
-            String lineIntegerMix = (String)super.get(key);
-            if (lineIntegerMix != null) {
-                lineInteger = new Integer(((String[])lineIntegerMix.split(":"))[0]);
+            Object lineIntegerObj = (Object)super.get(key);
+            if (lineIntegerObj != null) {
+                String lineIntegerMix = (String)super.get(key);
+                if (lineIntegerMix != null) {
+                    lineInteger = new Integer(((String[])lineIntegerMix.split(":"))[0]);
+                }
             }
         } else {
             lineInteger = (Integer)super.get(key);
-        } 
-        return this.convertLineToSeekPoint(lineInteger);
+        }
+        long ret = this.convertLineToSeekPoint(lineInteger);
+        if (ret != -1 && requestSeekPoint == true) {
+            if (!ImdstDefine.dataFileWriteDelayFlg)
+                ((AbstractDataRandomAccess)this.raf).requestSeekPoint(ret, 0, this.oneDataLength);
+        }
+        return ret;
     }
 
 

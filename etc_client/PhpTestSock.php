@@ -76,6 +76,7 @@
         $client->decrValue($keyVal, 1);
         var_dump("decrValue - OK");
 
+
       } else if ($argv[1] === "size-false") {
 
         // サイズチェックを一斉に行う
@@ -380,11 +381,9 @@
           $client->setValue("key_multi_5", "val_multi_5");
   
           $getMKeyList1 = array();
-          $getMKeyList1[] = "key_multi_1";
-          $getMKeyList1[] = "key_multi_2";
-          $getMKeyList1[] = "key_multi_3";
-          $getMKeyList1[] = "key_multi_4";
-          $getMKeyList1[] = "key_multi_5";
+          $getMKeyList1[] = "key_multi_1X";
+          $getMKeyList1[] = "key_multi_5XY";
+
           var_dump($client->getMultiValue($getMKeyList1));
   
           $getMKeyList2 = array();
@@ -497,7 +496,45 @@
           var_dump($client->getTagKeys($argv[4]));
         }
   
+      } else if ($argv[1] === "4.1"){
+        // Tagを指定してKey-Valueを取得
+        $counter = 0;
+        var_dump($client->getTagValues($argv[4]));
+        var_dump($client->getTagValues($argv[4], "UTF-8"));
+      } else if ($argv[1] === "4.2") {
   
+        // Tagを複数指定してANDもしくはOR条件でリストを取得
+        $counter = 0;
+
+        $tagList = array();
+        $tagList[] = "tag1";
+        $tagList[] = "tag2";
+        $tagList[] = "tag3";
+        $tagList[] = "tag4";
+        var_dump($client->getMultiTagKeys($tagList, false));
+        var_dump($client->getMultiTagKeys($tagList, true));
+      } else if ($argv[1] === "4.3") {
+  
+        // Tagを複数指定してANDもしくはOR条件でリストを取得
+        $counter = 0;
+
+        $tagList = array();
+        $tagList[] = "tag1";
+        $tagList[] = "tag2";
+        $tagList[] = "tag4";
+        var_dump($client->getMultiTagKeys($tagList, true));
+        var_dump($client->getMultiTagKeys($tagList, false));
+      } else if ($argv[1] === "4.4") {
+  
+        // Tagを複数指定してANDもしくはOR条件でリストを取得
+        $counter = 0;
+
+        $tagList = array();
+        $tagList[] = "tag1";
+        $tagList[] = "tag2";
+        $tagList[] = "tag3";
+        var_dump($client->getMultiTagValues($tagList, true));
+        var_dump($client->getMultiTagValues($tagList, false));
       } else if ($argv[1] === "7") {
   
         // データを引数の回数分取得
@@ -641,7 +678,18 @@
         $setObj[3] = array();
   
         var_dump($client->setObjectValue($argv[4], $setObj));
+      } else if ($argv[1] === "23.1") {
+        // ObjectNew登録
+        $setObj = array();
+        $setObj[0] = "";
+        $setObj[1] = "xxx";
+        $setObj[2] = "yyy";
+        $setObj[3] = array();
+          var_dump($client->setNewObjectValue($argv[4], $setObj));
       } else if ($argv[1] === "24") {
+        // Object取得
+        var_dump($client->getObjectValue($argv[4]));
+      } else if ($argv[1] === "24.1") {
         // Object取得
         var_dump($client->getObjectValue($argv[4]));
       }

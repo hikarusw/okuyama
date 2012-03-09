@@ -443,10 +443,8 @@ public class KeyManagerHelper extends AbstractHelper {
                             try {
                                 if(!this.keyMapManager.checkError()) {
                                     this.keyMapManager.containsKeyPair("PCKey");
-                                    this.keyMapManager.setKeyPair("PCKey", "PCValue", "0");
                                     String chkGetRet = this.keyMapManager.getKeyPair("PCKey");
-
-                                    if (chkGetRet != null) retStatus = "true";
+                                    retStatus = "true";
                                 } else {
                                     retStatus = "false";
                                 }
@@ -560,6 +558,15 @@ public class KeyManagerHelper extends AbstractHelper {
 
                             //retParamBuf = null;
                             break;
+                        case 209 : 
+
+                            // 20番の処理を強制停止する
+                            this.keyMapManager.outputDataStopSignal = true;
+                            System.out.println("Stop Output Data Start");
+                            Thread.sleep(10000);
+
+                            this.keyMapManager.outputDataStopSignal = false;
+                            System.out.println("Stop Output Data End");
                         case 21 :
 
                             // KeyMapManager Direct Connection
@@ -613,6 +620,13 @@ public class KeyManagerHelper extends AbstractHelper {
                             pw.flush();
                             //retParamBuf = null;
                             break;
+                        case 279 :
+
+                            // 27番の処理を強制停止する
+                            this.keyMapManager.outputDataStopSignal = true;
+                            Thread.sleep(10000);
+                            this.keyMapManager.outputDataStopSignal = false;
+                            retParamBuf.append("Stop OutputData");
                         case 28 :
 
                             // KeyMapManager Direct Connection
@@ -821,9 +835,18 @@ public class KeyManagerHelper extends AbstractHelper {
                         case 101 :
 
                             // KeyMapManager DataExport(For Backup)
-                            this.keyMapManager.dataExport(pw);
+                            this.keyMapManager.dataExport(pw, br, soc);
 
                             //retParamBuf = null;
+                            break;
+                        case 102 :
+
+                            // KeyMapManager OnMemoryObjectExport(For Backup)
+                            String memoryObjBkupFilePath = null;
+                            if (clientParameterList.length > 1) {
+                                memoryObjBkupFilePath = clientParameterList[1].trim();
+                            }
+                            retParamBuf.append(this.keyMapManager.keyObjectExport(memoryObjBkupFilePath));
                             break;
                         default :
 

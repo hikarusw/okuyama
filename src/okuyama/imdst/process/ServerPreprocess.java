@@ -32,6 +32,10 @@ import okuyama.imdst.util.*;
  * -crcm ImdstDefine.compulsionRetryConnectMode /MasterNodeとDataNode間の処理に失敗した場合に強制的に1度だけ再処理を行うようにするかの設定 true/再接続する, false/再接続は自動<br>
  * -dcmuc ImdstDefine.datanodeConnectorMaxUseCount /MasterNodeとDataNode間のSockeの最大再利用回数 (整数) 少ない値にすると接続コストがかかる<br>
  * -smbsmf ImdstDefine.serializeMapBucketSizeMemoryFactor /SerializMapのBucketサイズのJVMへのメモリ割当に対する1Bucket当たりの係数(整数)<br>
+ * -red ImdstDefine.recycleExsistData / 完全ファイルモード時に既に存在するデータを再利用する設定
+ * -wfsrf ImdstDefine.workFileStartingReadFlg / DataNode起動時に操作記録ログ(トランザクションログ)を読み込む設定.trueの場合は読み込む(デフォルト)
+ * -udt ImdstDefine.useDiskType / データファイルを保存するディスクのタイプを指定することで、ディスクへのアクセスが最適化される 1=HDD(デフォルト) 2=SSD
+ * -mdcs ImdstDefine.maxDiskCacheSize / ディスクキャッシュ利用時に、どれだけの件数をキャッシュに乗せるかを件数で指定する デフォルトでは10000件
  *
  * <br>
  * @author T.Okuyama
@@ -283,6 +287,90 @@ public class ServerPreprocess implements IProcess {
                             }
                         }
                     }
+
+
+                    // -pcmf
+                    if (startOptions[i].trim().equals("-pcmf")) {
+                        if (startOptions.length > (i+1)) {
+                            if (startOptions[i+1] != null && startOptions[i+1].trim().equals("true")) {
+                                ImdstDefine.pageCacheMappendFlg = true;
+                            }
+                        }
+                    }
+
+                    // -pcms
+                    if (startOptions[i].trim().equals("-pcms")) {
+                        if (startOptions.length > (i+1)) {
+                            try {
+                                ImdstDefine.pageCacheMappendSize = Integer.parseInt(startOptions[i+1]);
+                            } catch(NumberFormatException nfe) {
+                            }
+                        }
+                    }
+
+
+                    // -red
+                    if (startOptions[i].trim().equals("-red")) {
+                        if (startOptions.length > (i+1)) {
+                            if (startOptions[i+1] != null && startOptions[i+1].trim().equals("false")) {
+                                ImdstDefine.recycleExsistData = false;
+                            }
+                        }
+                    }
+
+
+                    // -wfsrf
+                    if (startOptions[i].trim().equals("-wfsrf")) {
+                        if (startOptions.length > (i+1)) {
+                            if (startOptions[i+1] != null && startOptions[i+1].trim().equals("false")) {
+                                ImdstDefine.workFileStartingReadFlg = false;
+                            }
+                        }
+                    }
+
+                    // -udt
+                    if (startOptions[i].trim().equals("-udt")) {
+                        if (startOptions.length > (i+1)) {
+                            try {
+                                int type = Integer.parseInt(startOptions[i+1]);
+                                if (type == 2) ImdstDefine.useDiskType = 2;
+                            } catch(NumberFormatException nfe) {
+                            }
+                        }
+                    }
+
+                    // -pcmf
+                    if (startOptions[i].trim().equals("-pcmf")) {
+                        if (startOptions.length > (i+1)) {
+                            if (startOptions[i+1] != null && startOptions[i+1].trim().equals("true")) {
+                                ImdstDefine.pageCacheMappendFlg = true;
+                            }
+                        }
+                    }
+
+
+                    // -dfssf
+                    if (startOptions[i].trim().equals("-dfssf")) {
+                        if (startOptions.length > (i+1)) {
+                            if (startOptions[i+1] != null && startOptions[i+1].trim().equals("true")) {
+                                ImdstDefine.dataFileSequentialSchedulingFlg = true;
+                            }
+                        }
+                    }
+
+
+                    // -mdcs
+                    if (startOptions[i].trim().equals("-mdcs")) {
+                        if (startOptions.length > (i+1)) {
+                            try {
+                                ImdstDefine.maxDiskCacheSize = Integer.parseInt(startOptions[i+1]);
+                            } catch(NumberFormatException nfe) {
+                            }
+                        }
+                    }
+
+
+
                 }
             }
         } catch (Exception e) {

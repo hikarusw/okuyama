@@ -2157,6 +2157,293 @@ public class OkuyamaClient {
 
 
     /**
+     * MasterNodeへ新規データを登録要求する.<br>
+     * Objectバージョン<br>
+     * Tagなし.<br>
+     * 既にデータが同一のKeyで登録されている場合は失敗する.<br>
+     * その場合は、falseが返る<br>
+     * 成功の場合は配列の長さは1である。失敗時は2である<br>
+     *
+     * @param keyStr Key値
+     * @param value Value値(Object型)
+     * @return String[] 要素1(データ有無):"true" or "false",要素2(失敗時はメッセージ):"メッセージ"
+     * @throws OkuyamaClientException
+     */
+    public String[] setNewObjectValue(String keyStr, Object value) throws OkuyamaClientException {
+        return this.setNewObjectValue(keyStr, null, value, null, null);
+    }
+
+
+    /**
+     * MasterNodeへ新規データを登録要求する.<br>
+     * Objectバージョン<br>
+     * Tagあり.<br>
+     * 既にデータが同一のKeyで登録されている場合は失敗する.<br>
+     * その場合は、falseが返る<br>
+     * 成功の場合は配列の長さは1である。失敗時は2である<br>
+     *
+     * @param keyStr Key値
+     * @param tagStrs Tag値 例){"tag1","tag2","tag3"}
+     * @param value Value値(Object型)
+     * @return String[] 要素1(データ有無):"true" or "false",要素2(失敗時はメッセージ):"メッセージ"
+     * @throws OkuyamaClientException
+     */
+    public String[] setNewObjectValue (String keyStr, String[] tags, Object value) throws OkuyamaClientException {
+        return this.setNewObjectValue(keyStr, tags, value, null, null);
+    }
+
+
+    /**
+     * MasterNodeへ新規データを登録要求する.<br>
+     * Objectバージョン<br>
+     * Tagなし.<br>
+     * Encodeなし.<br>
+     * 有効期限あり.<br>
+     * 既にデータが同一のKeyで登録されている場合は失敗する.<br>
+     * その場合は、falseが返る<br>
+     * 成功の場合は配列の長さは1である。失敗時は2である<br>
+     *
+     * @param keyStr Key値
+     * @param value Value値(Object型)
+     * @param expireTime 有効期限(秒/単位)
+     * @return String[] 要素1(データ有無):"true" or "false",要素2(失敗時はメッセージ):"メッセージ"
+     * @throws OkuyamaClientException
+     */
+    public String[] setNewObjectValue(String keyStr, Object value, Integer expireTime) throws OkuyamaClientException {
+        return this.setNewObjectValue(keyStr, null, value, null, expireTime);
+    }
+
+
+    /**
+     * MasterNodeへ新規データを登録要求する.<br>
+     * Objectバージョン<br>
+     * Tagなし.<br>
+     * Encode指定あり.<br>
+     * 有効期限なし.<br>
+     * 既にデータが同一のKeyで登録されている場合は失敗する.<br>
+     * その場合は、falseが返る<br>
+     * 成功の場合は配列の長さは1である。失敗時は2である<br>
+     *
+     * @param keyStr Key値
+     * @param value Value値(Object型)
+     * @param encode Encode指定
+     * @return String[] 要素1(データ有無):"true" or "false",要素2(失敗時はメッセージ):"メッセージ"
+     * @throws OkuyamaClientException
+     */
+    public String[] setNewObjectValue(String keyStr, Object value, String encode) throws OkuyamaClientException {
+        return this.setNewObjectValue(keyStr, null, value, encode, null);
+    }
+
+    /**
+     * MasterNodeへ新規データを登録要求する.<br>
+     * Objectバージョン<br>
+     * Tagなし.<br>
+     * Encode指定あり.<br>
+     * 有効期限あり.<br>
+     * 既にデータが同一のKeyで登録されている場合は失敗する.<br>
+     * その場合は、falseが返る<br>
+     * 成功の場合は配列の長さは1である。失敗時は2である<br>
+     *
+     * @param keyStr Key値
+     * @param value Value値(Object型)
+     * @param encode Encode指定
+     * @param expireTime 有効期限(秒/単位)
+
+     * @return String[] 要素1(データ有無):"true" or "false",要素2(失敗時はメッセージ):"メッセージ"
+     * @throws OkuyamaClientException
+     */
+    public String[] setNewObjectValue(String keyStr, Object value, String encode, Integer expireTime) throws OkuyamaClientException {
+        return this.setNewObjectValue(keyStr, null, value, encode, expireTime);
+    }
+
+
+    /**
+     * MasterNodeへ新規データを登録要求する.<br>
+     * Objectバージョン<br>
+     * Tag有り.<br>
+     * Encode指定あり.<br>
+     * 有効期限有り.<br>
+     * 既にデータが同一のKeyで登録されている場合は失敗する.<br>
+     * その場合は、falseが返る<br>
+     * 成功の場合は配列の長さは1である。失敗時は2である<br>
+     * 
+     * @param keyStr Key値
+     * @param tagStrs Tag値 例){"tag1","tag2","tag3"}
+     * @param value Value値(Object型)
+     * @param encode Encode指定
+     * @param expireTime 有効期限(秒/単位)
+     * @return String[] 要素1(データ有無):"true" or "false",要素2(失敗時はメッセージ):"メッセージ"
+     * @throws OkuyamaClientException
+     */
+    public String[] setNewObjectValue(String keyStr, String[] tagStrs, Object value, String encode, Integer expireTime) throws OkuyamaClientException {
+        String[] ret = null; 
+        String serverRetStr = null;
+        String[] serverRet = null;
+        String encodeValue = null;
+        byte[] valueBytes = null;
+        byte[] keyBytes = null;
+
+
+        // 文字列バッファ初期化
+        setValueServerReqBuf.delete(0, Integer.MAX_VALUE);
+
+        if (encode == null) encode = platformDefaultEncoding;
+
+        try {
+            if (this.socket == null) throw new OkuyamaClientException("No ServerConnect!!");
+
+            // Byte Lenghtチェック
+            if (tagStrs != null) {
+                for (int i = 0; i < tagStrs.length; i++) {
+                    if (tagStrs[i].getBytes(encode).length > maxValueSize) throw new OkuyamaClientException("Tag Max Size " + maxValueSize + " Byte");
+                }
+            }
+
+
+
+
+
+            // valueに対するサイズ、無指定チェック(Valueはnullやブランクの場合は代行文字列に置き換える)
+            if (value != null) {
+                valueBytes = SystemUtil.normalObjectSerialize(value);
+                if (valueBytes.length > maxValueSize) 
+                    throw new OkuyamaClientException("Save Value Max Size " + maxValueSize + " Byte");
+            } else {
+                
+                throw new OkuyamaClientException("The null is not admitted on a Value");
+            }
+
+
+
+            // Keyに対する無指定チェック
+            if (keyStr == null ||  keyStr.trim().equals(""))
+                throw new OkuyamaClientException("The blank is not admitted on a key");
+
+            // バイトコードに変換
+            keyBytes = keyStr.getBytes(encode);
+            if (keyBytes.length > maxKeySize) throw new OkuyamaClientException("Save Key Max Size " + maxKeySize + " Byte");
+            
+            // ValueをBase64でエンコード
+            encodeValue = new String(this.dataEncoding(valueBytes));
+
+
+            // 処理番号連結
+            setValueServerReqBuf.append("6");
+            // セパレータ連結
+            setValueServerReqBuf.append(OkuyamaClient.sepStr);
+
+
+            // Key連結(Keyはデータ送信時には必ず文字列が必要)
+            setValueServerReqBuf.append(new String(this.dataEncoding(keyStr.getBytes(encode))));
+            // セパレータ連結
+            setValueServerReqBuf.append(OkuyamaClient.sepStr);
+
+
+            // Tag連結
+            // Tag指定の有無を調べる
+            if (tagStrs == null || tagStrs.length < 1) {
+
+                // ブランク規定文字列を連結
+                setValueServerReqBuf.append(OkuyamaClient.blankStr);
+            } else {
+
+                // Tag数分連結
+                setValueServerReqBuf.append(new String(this.dataEncoding(tagStrs[0].getBytes(encode))));
+                for (int i = 1; i < tagStrs.length; i++) {
+                    setValueServerReqBuf.append(tagKeySep);
+                    setValueServerReqBuf.append(new String(this.dataEncoding(tagStrs[i].getBytes(encode))));
+                }
+            }
+
+            // セパレータ連結
+            setValueServerReqBuf.append(OkuyamaClient.sepStr);
+
+            // TransactionCode連結
+            setValueServerReqBuf.append(this.transactionCode);
+
+            // セパレータ連結
+            setValueServerReqBuf.append(OkuyamaClient.sepStr);
+
+            // Value連結
+            setValueServerReqBuf.append(encodeValue);
+
+            // 有効期限あり
+            if (expireTime != null) {
+                // セパレータ連結
+                setValueServerReqBuf.append(OkuyamaClient.sepStr);
+                setValueServerReqBuf.append(expireTime);
+                // セパレータ連結　最後に区切りを入れて送信データ終わりを知らせる
+                setValueServerReqBuf.append(OkuyamaClient.sepStr);
+            }
+
+            // サーバ送信
+            pw.println(setValueServerReqBuf.toString());
+            pw.flush();
+
+            // サーバから結果受け取り
+            serverRetStr = br.readLine();
+            serverRet = serverRetStr.split(OkuyamaClient.sepStr);
+
+            // 処理の妥当性確認
+            if (serverRet != null && serverRet[0].equals("6")) {
+                if (serverRet[1].equals("true")) {
+
+                    // 処理成功
+                    ret = new String[1];
+                    ret[0] = "true";
+                } else{
+
+                    // 処理失敗(メッセージ格納)
+                    ret = new String[2];
+                    ret[0] = "false";
+                    ret[1] = serverRet[2];
+                }
+            } else {
+
+                // 妥当性違反
+                throw new OkuyamaClientException("Execute Violation of validity [" + serverRetStr + "]");
+            }
+        } catch (OkuyamaClientException ice) {
+            throw ice;
+        } catch (ConnectException ce) {
+            if (this.masterNodesList != null && masterNodesList.size() > 1) {
+                try {
+                    this.autoConnect();
+                    ret = this.setNewObjectValue(keyStr, tagStrs, value, encode, expireTime);
+                } catch (Exception e) {
+                    throw new OkuyamaClientException(ce);
+                }
+            } else {
+                throw new OkuyamaClientException(ce);
+            }
+        } catch (SocketException se) {
+            if (this.masterNodesList != null && masterNodesList.size() > 1) {
+                try {
+                    this.autoConnect();
+                    ret = this.setNewObjectValue(keyStr, tagStrs, value, encode, expireTime);
+                } catch (Exception e) {
+                    throw new OkuyamaClientException(se);
+                }
+            } else {
+                throw new OkuyamaClientException(se);
+            }
+        } catch (Throwable e) {
+            if (this.masterNodesList != null && masterNodesList.size() > 1) {
+                try {
+                    this.autoConnect();
+                    ret = this.setNewObjectValue(keyStr, tagStrs, value, encode, expireTime);
+                } catch (Exception ee) {
+                    throw new OkuyamaClientException(e);
+                }
+            } else {
+                throw new OkuyamaClientException(e);
+            }
+        }
+        return ret;
+    }
+
+
+    /**
      * MasterNodeへバージョンチェック付き値登録要求をする.<br>
      * Tagなし.<br>
      * バージョン値を使用して更新前チェックを行う.<br>
@@ -3720,7 +4007,7 @@ public class OkuyamaClient {
      *
      * @param tagStr Tag値
      * @param encoding エンコーディング指定
-     * @return Map 取得データのMap 取得キーに同一の値を複数指定した場合は束ねられる Mapのキー値は指定されたKeyとなりValueは取得した値となる
+     * @return Map 取得データのMap Mapのキー値はTag紐付くKeyとなりValueはそのKeyに紐付く値となる
      * @throws OkuyamaClientException
      */
     public Map getTagValues(String tagStr, String encoding) throws OkuyamaClientException {
@@ -5585,7 +5872,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagでKey値配列を取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
+     * Tagは紐付いているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
      *
      * @param tagStr Tag値
      * @param noExistsData 存在していないデータを取得するかの指定(true:取得する false:取得しない)
@@ -5599,7 +5886,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagでKey値配列を取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
+     * Tagは紐付いているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
      *
      * @param tagStr Tag値
      * @param noExistsData 存在していないデータを取得するかの指定(true:取得する false:取得しない)
@@ -5738,7 +6025,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagでKey値配列を取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
+     * Tagは紐付いているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
      *
      * @param tagStr Tag値
      * @param noExistsData 存在していないデータを取得するかの指定(true:取得する false:取得しない)
@@ -5792,7 +6079,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagでKey値配列を取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
+     * Tagは紐付いているが実際は既に存在しないValueをどのように扱うかを指定できる.<br>
      *
      * @param decodeKey 取得するKey値をBase64デコードして返す指定
      * @return Object[] 要素1(データ有無):"true" or "false",要素2(Key値配列):Stringの配列
@@ -5864,7 +6151,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      *
      * @param tagStr Tag値
      * @return OkuyamaResultSet 結果のOkuyamaResultSet　Tagがそもそも存在しない場合もOkuyamaResultSetは返るのでOkuyamaResultSetのnextメソッドを呼び出してデータの有無を確認する必要がある
@@ -5876,7 +6163,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      *
      * @param tagStr Tag値
      * @param encoding エンコーディング指定
@@ -5890,7 +6177,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * Tagに紐付くKey、Valueのどちらか、もしくは両方が指定した正規表現と一致する値のみ返される<br>
      * 第3引数にて範囲を適応する先を決定する<br>
      
@@ -5908,7 +6195,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * Tagに紐付くKey、Valueのどちらか、もしくは両方が指定した正規表現と一致する値のみ返される<br>
      * 第3引数にて範囲を適応する先を決定する<br>
      *
@@ -5926,7 +6213,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * Tagに紐付くKey、Valueのどちらか、もしくは両方が指定した数値の範囲内のみが返される<br>
      * Tagに紐付く値の範囲検索が可能<br>
      * 第3引数にて範囲を適応する先を決定する<br>
@@ -5946,7 +6233,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * Tagに紐付くKey、Valueのどちらか、もしくは両方が指定した数値の範囲内のみが返される<br>
      * Tagに紐付く値の範囲検索が可能<br>
      * 第3引数にて範囲を適応する先を決定する<br>
@@ -5966,7 +6253,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * 利用者が独自で実装可能なUserDataFilterインターフェースを実装したクラスを渡すことで独自のフィルターが可能<br>
      *
      * @param tagStr Tag値
@@ -5980,7 +6267,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * 利用者が独自で実装可能なUserDataFilterインターフェースを実装したクラスを渡すことで独自のフィルターが可能<br>
      *
      * @param tagStr Tag値
@@ -5996,7 +6283,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを指定することで紐付くKeyとValueが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      *
      * @param tagStr Tag値
      * @param encoding Valueを復元する際に利用するエンコーディング指定
@@ -6143,7 +6430,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを複数を指定することで紐付くKeyが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * 指定したTagはANDの扱いでデータは選別される。getMultiTagKeysと同じように動くが、こちらを使えば一度にメモリ上に展開出来ないような、<br>
      * 大量のTagに紐付くデータを対象にする場合に向いている。少量のデータに対して複数Tagで取得したい場合は、従来通りgetMultiTagKeysを使うことを推奨する.<br>
      *
@@ -6158,7 +6445,7 @@ public class OkuyamaClient {
 
     /**
      * MasterNodeからTagを複数を指定することで紐付くKeyが取得可能な、OkuyamaResultSetを取得する.<br>
-     * Tagは打たれているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
+     * Tagは紐付いているが実際は既に存在しないValueが紐付くKey値は取得出来ない.<br>
      * またANDとORを指定可能であり、getMultiTagKeysと同じように動くが、こちらを使えば一度にメモリ上に展開出来ないような、<br>
      * 大量のTagに紐付くデータを対象にする場合に向いている。少量のデータに対して複数Tagで取得したい場合は、従来通りgetMultiTagKeysを使うことを推奨する.<br>
      *

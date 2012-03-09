@@ -11,7 +11,7 @@ import java.util.zip.Deflater;
  */
 public class ImdstDefine {
 
-    public static final String okuyamaVersion = "VERSION okuyama-0.9.1";
+    public static final String okuyamaVersion = "VERSION okuyama-0.9.2";
 
     // -- KeyMapファイルに関係する定数 -------------------------------------------------
     // KeyNodeのWorkファイルでのセパレータ
@@ -210,6 +210,7 @@ public class ImdstDefine {
     public static final String Prop_MemoryLimitSize = ".memoryLimitSize";
     public static final String Prop_VirtualStoreDirs = ".virtualStoreDirs";
     public static final String Prop_KeyStoreDirs = ".keyStoreDirs";
+    public static final String Prop_DiskCacheFilePath = ".cacheFilePath";
     public static final String Prop_DataSaveTransactionFileEveryCommit = "DataSaveTransactionFileEveryCommit";
     public static final String Prop_ShareDataFileWriteDelayFlg = "ShareDataFileWriteDelayFlg";
     public static final String Prop_ShareDataFileMaxDelayCount = "ShareDataFileMaxDelayCount";
@@ -284,6 +285,9 @@ public class ImdstDefine {
 
     // GC呼び出しを行う指定
     public volatile static boolean jvmGcExecutionMode = true;
+
+    // DataNode追加によるデータ移行中を表す。
+    public volatile static boolean nodeDataRemoveProcess = false;
 
 
     // ---- プログラム規定数値 -------------------------------------------------------------
@@ -487,6 +491,15 @@ public class ImdstDefine {
     // SerializeMapのBucketサイズのJVMへのメモリ割当1MB単位への格納係数　小さな値にすればBucket数は減る
     public volatile static long serializeMapBucketSizeMemoryFactor = 400;
 
+    // 完全ファイルモード時に既に存在するデータを再利用する設定
+    public volatile static boolean recycleExsistData = true;
+
+    // okuyamaが利用するディスクの種類 1=HDD,2=SSD
+    public volatile static int useDiskType = 1;
+
+
+    // 操作記録ログ(WALログ)を読み込む設定
+    public volatile static boolean workFileStartingReadFlg = true;
 
     // 保存データサイズの合計値演算設定
     // true:計算する
@@ -504,6 +517,18 @@ public class ImdstDefine {
 
     // 有効期限切れのデータを実際に物理削除するまでの経過時間(ミリ秒)
     public static final long invalidDataDeleteTime = 6000;
+
+    // データファイルをOSのPageCacheにのせる要否
+    public volatile static boolean pageCacheMappendFlg = false;
+    // データファイルをOSのPageCacheにのせる件数
+    public volatile static int pageCacheMappendSize = 100000;
+
+    // 高速なDiskを読み出しキャッシュに利用する場合の最大キャッシュ数(ここでの定義数 × dataFileWriteMaxSize=ディスク上に作成される最大サイズ(バイト/単位))
+    public volatile static int maxDiskCacheSize = 10000;
+
+
+    // データファイルへのシークアクセスをSequentialになるように調整する設定
+    public volatile static boolean dataFileSequentialSchedulingFlg = false;
 
 
     public volatile static boolean fileBaseMapTimeDebug = false;
