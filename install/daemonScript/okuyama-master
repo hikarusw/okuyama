@@ -1,0 +1,133 @@
+#!/bin/sh
+
+###############################################################################
+#
+# description: okuyama Master Node script using jsvc
+# ver 0.1
+# author nishikawasasaki
+#
+###############################################################################
+
+# Source function library.
+. /etc/init.d/functions
+
+
+
+##################################################
+設定項目
+##################################################
+
+# okuyama ユーザと展開ディレクトリ
+OKUYAMA_USER=okuyama
+OKUYAMA_HOME=/home/okuyama/okuyama
+
+# Java 設定
+JAVA_HOME=/usr/java/default
+
+# okuyama 入出力ファイル指定
+OKUYAMA_INSTANCE_NAME=m1
+OKUYAMA_CONF=$OKUYAMA_HOME/conf/MasterNode.properties
+OKUYAMA_STDOUT=$OKUYAMA_HOME/logs/masternode-$OKUYAMA_INSTANCE_NAME.out
+OKUYAMA_STDERR=$OKUYAMA_HOME/logs/masternode-$OKUYAMA_INSTANCE_NAME.err
+
+# okuyama 起動オプション ""囲みで指定してください。
+OKUYAMA_OPTS=""
+
+
+
+##################################################
+下記は変更不要です
+##################################################
+
+# etc.
+PIDFILE=/var/run/okuyamamaster-$OKUYAMA_INSTANCE_NAME.pid
+LOCKFILE=/var/lock/subsys/okuyamamaster-$OKUYAMA_INSTANCE_NAME
+DAEMON=/home/okuyama/jsvc
+JSVC_LOG=$OKUYAMA_HOME/logs
+
+PATH=$JAVA_HOME/bin:$ANT_HOME/bin:$PATH:$HOME/bin:$OKUYAMA_HOME/bin
+
+# ClassPath
+CLASSPATH=\
+$OKUYAMA_HOME:\
+$OKUYAMA_HOME/bin/okuyama-0.9.2.jar:\
+$OKUYAMA_HOME/lib/log4j-1.2.14.jar:\
+$OKUYAMA_HOME/lib/javamail-1.4.1.jar:\
+$OKUYAMA_HOME/lib/commons-daemon.jar:\
+$OKUYAMA_HOME/lib/commons-codec-1.4.jar
+
+
+
+# 起動
+start(){
+
+    echo -n "Starting okuyama Master Node by jsvc: "
+    $DAEMON \
+    -classpath $CLASSPATH \
+    -Xss512k  \
+    -Xmx1024m \
+    -Xms512m \
+    -server \
+    -pidfile $PIDFILE \
+    -user $OKUYAMA_USER \
+    -home $JAVA_HOME \
+    -outfile $OKUYAMA_STDOUT \
+    -errfile $OKUYAMA_STDERR \
+    -XX:+UseConcMarkSweepGC \
+    -XX:+CMSParallelRemarkEnabled \
+    -XX:+UseParNewGC \
+    okuyama.base.JavaMain $OKUYAMA_HOME/conf/Main.properties $OKUYAMA_CONF $OKUYAMA_OPTS
+
+    RETVAL=$?
+    if [ $RETVAL = 0 ]; then
+        echo_success
+        touch $LOCKFILE
+    else
+        echo_failure
+    fi
+    echo
+}
+
+
+# 停止
+stop(){
+
+    echo -n "Shutting down okuyama Master Node by jsvc: "
+    $DAEMON \
+    -stop \
+    -pidfile $PIDFILE \
+    okuyama.base.JavaMain
+
+    RETVAL=$?
+    if [ $RETVAL = 0 ]; then
+        echo_success
+        rm -f $PIDFILE $LOCKFILE
+    else
+        echo_failure
+    fi
+    echo
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    status)
+        # status $DAEMON
+        # status -p $PIDFILE
+        status -p $PIDFILE $DAEMON
+
+        RETVAL=$?
+        ;;
+    *)
+        echo $"Usage: okuyama-master {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
