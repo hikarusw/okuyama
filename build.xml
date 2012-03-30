@@ -21,6 +21,7 @@
 		<pathelement path = "lib/log4j-1.2.14.jar"/>
 		<pathelement path = "lib/memcached.jar"/>
 		<pathelement path = "lib/servlet-api-2.5.jar"/>
+		<pathelement path = "lib/commons-daemon-1.0.10.jar"/>
 	</path>
 
 	<!-- clean Task  -->
@@ -202,7 +203,6 @@
 		</java>
 		<echo>Set Command End</echo>
 	</target>
-
 
 	<!-- Get Command Test Execute task -->
 	<target name="testget">
